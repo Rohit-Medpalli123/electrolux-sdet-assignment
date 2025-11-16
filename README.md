@@ -256,7 +256,7 @@ The `pytest.ini` file contains pytest configuration:
 
 ```ini
 [pytest]
-addopts = -vs -rf --alluredir=reports/allure/ ./tests
+addopts = -vs -rf --alluredir=reports/allure/
 testpaths = tests
 markers =
     smoke: Quick smoke tests for critical functionality
@@ -267,6 +267,66 @@ markers =
 
 - `@pytest.mark.smoke`: Critical tests that must pass
 - `@pytest.mark.regression`: Comprehensive regression tests
+
+### Fixtures
+
+The `tests/conftest.py` file provides reusable fixtures for test setup and teardown:
+
+#### Available Fixtures
+
+**`base_url`** (scope: session)
+- Provides the base URL for API tests
+- Default: `https://jsonplaceholder.typicode.com`
+- Can be overridden via command line: `pytest --base-url="https://custom-url.com"`
+- Usage: Automatically injected into `api_client` fixture
+
+**`logger`** (scope: session)
+- Provides a configured logger instance for tests
+- Based on Loguru with color-coded output
+- Usage: `def test_example(logger): logger.info("Test started")`
+
+**`api_client`** (scope: function)
+- Provides a ready-to-use API client instance
+- Automatically configured with base URL and logger
+- Includes automatic cleanup after each test (closes session)
+- Pre-configured with timeout=10s and max_retries=3
+- Usage: `def test_example(api_client): response = api_client.get("/posts")`
+
+**`response_handler`** (scope: session)
+- Provides a ResponseHandler instance for validating API responses
+- Used for status code, JSON, and schema validation
+- Usage: `def test_example(response_handler): response_handler.assert_status_code(response, 200)`
+
+**`post_schema`** (scope: session)
+- Loads and provides the JSON schema for post validation
+- Schema loaded from `schemas/post_schema.json`
+- Used with response_handler for schema validation
+- Usage: `def test_example(post_schema, response_handler): response_handler.validate_schema(data, post_schema)`
+
+**`log_separator_after_test`** (autouse: True)
+- Automatically adds visual separators in logs after each test
+- No need to explicitly use this fixture - it's automatically applied to all tests
+- Improves log readability by clearly marking test boundaries
+
+#### Example Usage
+
+```python
+def test_get_all_posts(api_client, response_handler, post_schema, logger):
+    """Example test showing fixture usage."""
+    logger.info("Starting test...")
+    
+    # api_client is ready to use
+    response = api_client.get("/posts")
+    
+    # Validate response
+    response_handler.assert_status_code(response, 200)
+    data = response_handler.parse_json(response)
+    
+    # Validate schema
+    response_handler.validate_schema(data[0], post_schema)
+    
+    logger.info("Test completed successfully")
+```
 
 ## Architecture
 
