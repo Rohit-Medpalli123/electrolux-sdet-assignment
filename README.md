@@ -197,6 +197,27 @@ Allure reports include:
 - 📉 Trend analysis across multiple test runs
 - ⚡ Fast navigation and filtering
 
+### Sample Reports
+
+**Allure Dashboard Overview**
+
+The main dashboard provides a comprehensive overview of test execution with pass/fail statistics, test distribution, and feature breakdown:
+
+![Allure Dashboard Overview](Imgs/image1.png)
+
+**Detailed Test Execution View**
+
+Each test displays detailed execution steps, including request/response information, validations performed, and attachments for better debugging:
+
+![Test Execution Details](Imgs/image2.png)
+
+Key features shown in the detailed view:
+- ✅ Step-by-step test execution flow
+- 📎 Request payload and response status attachments
+- ⏱️ Individual step duration tracking
+- 🏷️ Test tags, severity, and categorization
+- 📋 Setup and teardown fixture information
+
 ## Logging
 
 Logs are automatically organized in a structured manner:
