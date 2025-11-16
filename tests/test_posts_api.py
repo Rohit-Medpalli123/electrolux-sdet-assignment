@@ -35,21 +35,23 @@ class TestPostsAPI:
         - Response is non-empty list
         - Each item matches post schema
         """
-        logger.info("Starting test: test_get_all_posts")
+        with allure.step("Send GET request to /posts"):
+            logger.info("Starting test: test_get_all_posts")
+            response = api_client.get("/posts")
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request
-        response = api_client.get("/posts")
+        with allure.step("Validate status code is 200"):
+            response_handler.assert_status(response, 200)
 
-        # Validate status
-        response_handler.assert_status(response, 200)
+        with allure.step("Parse and validate response structure"):
+            posts = response_handler.get_json(response)
+            response_handler.assert_non_empty_list(posts)
+            allure.attach(f"Total posts retrieved: {len(posts)}", name="Posts Count", attachment_type=allure.attachment_type.TEXT)
 
-        # Parse and validate response
-        posts = response_handler.get_json(response)
-        response_handler.assert_non_empty_list(posts)
-
-        # Validate schema for first few posts (optimization)
-        for post in posts[:5]:
-            response_handler.validate_schema(post, post_schema)
+        with allure.step("Validate schema for first 5 posts"):
+            for i, post in enumerate(posts[:5], 1):
+                response_handler.validate_schema(post, post_schema)
+            allure.attach(f"Validated {min(5, len(posts))} posts against schema", name="Schema Validation", attachment_type=allure.attachment_type.TEXT)
 
         logger.info(f"Test passed: Retrieved {len(posts)} posts")
 
@@ -68,18 +70,21 @@ class TestPostsAPI:
         - Post id is 1
         - Response matches post schema
         """
-        logger.info("Starting test: test_get_single_post")
+        with allure.step("Send GET request to /posts/1"):
+            logger.info("Starting test: test_get_single_post")
+            response = api_client.get("/posts/1")
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request
-        response = api_client.get("/posts/1")
+        with allure.step("Validate status code is 200"):
+            response_handler.assert_status(response, 200)
 
-        # Validate status
-        response_handler.assert_status(response, 200)
+        with allure.step("Parse response and validate post ID"):
+            post = response_handler.get_json(response)
+            response_handler.assert_field_value(post, "id", 1)
+            allure.attach(f"Post Title: {post['title']}", name="Post Details", attachment_type=allure.attachment_type.TEXT)
 
-        # Parse and validate response
-        post = response_handler.get_json(response)
-        response_handler.assert_field_value(post, "id", 1)
-        response_handler.validate_schema(post, post_schema)
+        with allure.step("Validate response against post schema"):
+            response_handler.validate_schema(post, post_schema)
 
         logger.info(f"Test passed: Retrieved post with id=1, title='{post['title']}'")
 
@@ -99,22 +104,23 @@ class TestPostsAPI:
         - All returned posts belong to specified user
         - Each post matches schema
         """
-        logger.info(f"Starting test: test_get_posts_by_user with userId={user_id}")
+        with allure.step(f"Send GET request to /posts with userId={user_id}"):
+            logger.info(f"Starting test: test_get_posts_by_user with userId={user_id}")
+            response = api_client.get("/posts", params={"userId": user_id})
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request
-        response = api_client.get("/posts", params={"userId": user_id})
+        with allure.step("Validate status code is 200"):
+            response_handler.assert_status(response, 200)
 
-        # Validate status
-        response_handler.assert_status(response, 200)
+        with allure.step("Parse response and validate it's a non-empty list"):
+            posts = response_handler.get_json(response)
+            response_handler.assert_non_empty_list(posts)
+            allure.attach(f"Total posts for userId={user_id}: {len(posts)}", name="Filtered Posts Count", attachment_type=allure.attachment_type.TEXT)
 
-        # Parse and validate response
-        posts = response_handler.get_json(response)
-        response_handler.assert_non_empty_list(posts)
-
-        # Verify all posts belong to specified user
-        for post in posts:
-            response_handler.assert_field_value(post, "userId", user_id)
-            response_handler.validate_schema(post, post_schema)
+        with allure.step(f"Verify all posts belong to userId={user_id} and match schema"):
+            for post in posts:
+                response_handler.assert_field_value(post, "userId", user_id)
+                response_handler.validate_schema(post, post_schema)
 
         logger.info(f"Test passed: Retrieved {len(posts)} posts for userId={user_id}")
 
@@ -133,27 +139,29 @@ class TestPostsAPI:
         - Response echoes request data
         - Response includes id field
         """
-        logger.info("Starting test: test_create_post")
+        with allure.step("Prepare payload for new post"):
+            logger.info("Starting test: test_create_post")
+            payload = {
+                "title": "Test Post",
+                "body": "This is a test post body",
+                "userId": 1
+            }
+            allure.attach(str(payload), name="Request Payload", attachment_type=allure.attachment_type.JSON)
 
-        # Prepare payload
-        payload = {
-            "title": "Test Post",
-            "body": "This is a test post body",
-            "userId": 1
-        }
+        with allure.step("Send POST request to /posts"):
+            response = api_client.post("/posts", json=payload)
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request
-        response = api_client.post("/posts", json=payload)
+        with allure.step("Validate status code is 201 (Created)"):
+            response_handler.assert_status(response, 201)
 
-        # Validate status
-        response_handler.assert_status(response, 201)
-
-        # Parse and validate response
-        created_post = response_handler.get_json(response)
-        response_handler.assert_field_exists(created_post, "id")
-        response_handler.assert_field_value(created_post, "title", payload["title"])
-        response_handler.assert_field_value(created_post, "body", payload["body"])
-        response_handler.assert_field_value(created_post, "userId", payload["userId"])
+        with allure.step("Validate response contains correct data"):
+            created_post = response_handler.get_json(response)
+            response_handler.assert_field_exists(created_post, "id")
+            response_handler.assert_field_value(created_post, "title", payload["title"])
+            response_handler.assert_field_value(created_post, "body", payload["body"])
+            response_handler.assert_field_value(created_post, "userId", payload["userId"])
+            allure.attach(f"Created Post ID: {created_post['id']}", name="Created Post", attachment_type=allure.attachment_type.TEXT)
 
         logger.info(f"Test passed: Created post with id={created_post['id']}")
 
@@ -171,28 +179,29 @@ class TestPostsAPI:
         - Status code 200
         - Response echoes updated data
         """
-        logger.info("Starting test: test_update_post")
+        with allure.step("Prepare payload for updating post"):
+            logger.info("Starting test: test_update_post")
+            payload = {
+                "id": 1,
+                "title": "Updated Title",
+                "body": "Updated body content",
+                "userId": 1
+            }
+            allure.attach(str(payload), name="Update Payload", attachment_type=allure.attachment_type.JSON)
 
-        # Prepare payload
-        payload = {
-            "id": 1,
-            "title": "Updated Title",
-            "body": "Updated body content",
-            "userId": 1
-        }
+        with allure.step("Send PUT request to /posts/1"):
+            response = api_client.put("/posts/1", json=payload)
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request
-        response = api_client.put("/posts/1", json=payload)
+        with allure.step("Validate status code is 200"):
+            response_handler.assert_status(response, 200)
 
-        # Validate status
-        response_handler.assert_status(response, 200)
-
-        # Parse and validate response
-        updated_post = response_handler.get_json(response)
-        response_handler.assert_field_value(updated_post, "id", payload["id"])
-        response_handler.assert_field_value(updated_post, "title", payload["title"])
-        response_handler.assert_field_value(updated_post, "body", payload["body"])
-        response_handler.assert_field_value(updated_post, "userId", payload["userId"])
+        with allure.step("Validate response contains updated data"):
+            updated_post = response_handler.get_json(response)
+            response_handler.assert_field_value(updated_post, "id", payload["id"])
+            response_handler.assert_field_value(updated_post, "title", payload["title"])
+            response_handler.assert_field_value(updated_post, "body", payload["body"])
+            response_handler.assert_field_value(updated_post, "userId", payload["userId"])
 
         logger.info(f"Test passed: Updated post with id=1")
 
@@ -209,15 +218,15 @@ class TestPostsAPI:
         Validates:
         - Status code is 200 or 204
         """
-        logger.info("Starting test: test_delete_post")
+        with allure.step("Send DELETE request to /posts/1"):
+            logger.info("Starting test: test_delete_post")
+            response = api_client.delete("/posts/1")
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request
-        response = api_client.delete("/posts/1")
-
-        # Validate status (JSONPlaceholder returns 200)
-        assert response.status_code in [200, 204], (
-            f"Expected status 200 or 204, but got {response.status_code}"
-        )
+        with allure.step("Validate status code is 200 or 204"):
+            assert response.status_code in [200, 204], (
+                f"Expected status 200 or 204, but got {response.status_code}"
+            )
 
         logger.info(f"Test passed: Deleted post with status={response.status_code}")
 
@@ -234,13 +243,13 @@ class TestPostsAPI:
         Validates:
         - Status code 404 for non-existent endpoint
         """
-        logger.info("Starting test: test_invalid_endpoint_returns_404")
+        with allure.step("Send GET request to invalid endpoint /postz"):
+            logger.info("Starting test: test_invalid_endpoint_returns_404")
+            response = api_client.get("/postz")
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request to invalid endpoint
-        response = api_client.get("/postz")
-
-        # Validate status
-        response_handler.assert_status(response, 404)
+        with allure.step("Validate status code is 404"):
+            response_handler.assert_status(response, 404)
 
         logger.info("Test passed: Invalid endpoint correctly returned 404")
 
@@ -257,13 +266,13 @@ class TestPostsAPI:
         Validates:
         - Status code 404 for invalid post ID
         """
-        logger.info("Starting test: test_get_non_existent_post_returns_404")
+        with allure.step("Send GET request to /posts/99999 (non-existent ID)"):
+            logger.info("Starting test: test_get_non_existent_post_returns_404")
+            response = api_client.get("/posts/99999")
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request with invalid post ID
-        response = api_client.get("/posts/99999")
-
-        # Validate status
-        response_handler.assert_status(response, 404)
+        with allure.step("Validate status code is 404"):
+            response_handler.assert_status(response, 404)
 
         logger.info("Test passed: Non-existent post correctly returned 404")
 
@@ -282,33 +291,32 @@ class TestPostsAPI:
         - List contains at least 100 posts
         - Each post has required fields
         """
-        logger.info("Starting test: test_get_posts_response_structure")
+        with allure.step("Send GET request to /posts"):
+            logger.info("Starting test: test_get_posts_response_structure")
+            response = api_client.get("/posts")
+            allure.attach(f"Status Code: {response.status_code}", name="Response Status", attachment_type=allure.attachment_type.TEXT)
 
-        # Make request
-        response = api_client.get("/posts")
+        with allure.step("Validate status code is 200"):
+            response_handler.assert_status(response, 200)
 
-        # Validate status
-        response_handler.assert_status(response, 200)
+        with allure.step("Parse response and validate list structure"):
+            posts = response_handler.get_json(response)
+            response_handler.assert_non_empty_list(posts)
+            assert len(posts) >= 100, f"Expected at least 100 posts, but got {len(posts)}"
+            allure.attach(f"Total posts: {len(posts)}", name="Posts Count", attachment_type=allure.attachment_type.TEXT)
 
-        # Parse response
-        posts = response_handler.get_json(response)
+        with allure.step("Validate first post has all required fields"):
+            first_post = posts[0]
+            response_handler.assert_field_exists(first_post, "userId")
+            response_handler.assert_field_exists(first_post, "id")
+            response_handler.assert_field_exists(first_post, "title")
+            response_handler.assert_field_exists(first_post, "body")
 
-        # Validate structure
-        response_handler.assert_non_empty_list(posts)
-        assert len(posts) >= 100, f"Expected at least 100 posts, but got {len(posts)}"
-
-        # Validate first post has required fields
-        first_post = posts[0]
-        response_handler.assert_field_exists(first_post, "userId")
-        response_handler.assert_field_exists(first_post, "id")
-        response_handler.assert_field_exists(first_post, "title")
-        response_handler.assert_field_exists(first_post, "body")
-
-        # Validate field types
-        response_handler.assert_field_type(first_post, "userId", int)
-        response_handler.assert_field_type(first_post, "id", int)
-        response_handler.assert_field_type(first_post, "title", str)
-        response_handler.assert_field_type(first_post, "body", str)
+        with allure.step("Validate field types are correct"):
+            response_handler.assert_field_type(first_post, "userId", int)
+            response_handler.assert_field_type(first_post, "id", int)
+            response_handler.assert_field_type(first_post, "title", str)
+            response_handler.assert_field_type(first_post, "body", str)
 
         logger.info(f"Test passed: Response structure validated for {len(posts)} posts")
 
